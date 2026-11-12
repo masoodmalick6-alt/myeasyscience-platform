@@ -31,6 +31,14 @@ create table if not exists public.quiz_attempts (
 -- Stores per-question review data for saved practice attempts. Safe to re-run.
 alter table public.quiz_attempts add column if not exists answer_details jsonb;
 
+-- Migration for databases created from the first schema, whose lesson_progress
+-- table used lesson_id/completed/updated_at while the app reads and writes
+-- lesson_index/completed_at. Adds the columns the app needs (old columns are
+-- left in place here; drop them manually only after confirming the table is empty).
+alter table public.lesson_progress add column if not exists lesson_index integer;
+alter table public.lesson_progress add column if not exists completed_at timestamptz default now();
+create unique index if not exists lesson_progress_user_course_lesson_idx on public.lesson_progress(user_id, course_id, lesson_index);
+
 -- Stripe subscription columns (missing on databases created from the earlier schema).
 alter table public.profiles add column if not exists stripe_customer_id text unique;
 alter table public.profiles add column if not exists stripe_subscription_id text unique;
