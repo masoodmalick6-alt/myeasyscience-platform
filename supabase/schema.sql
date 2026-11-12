@@ -31,9 +31,25 @@ create table if not exists public.quiz_attempts (
 -- Stores per-question review data for saved practice attempts. Safe to re-run.
 alter table public.quiz_attempts add column if not exists answer_details jsonb;
 
+-- Stripe subscription columns (missing on databases created from the earlier schema).
+alter table public.profiles add column if not exists stripe_customer_id text unique;
+alter table public.profiles add column if not exists stripe_subscription_id text unique;
+alter table public.profiles add column if not exists subscription_status text;
+
 alter table public.profiles enable row level security;
 alter table public.lesson_progress enable row level security;
 alter table public.quiz_attempts enable row level security;
+
+-- Helper first: the admin policies below call it, so it must exist before they do.
+create or replace function public.is_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (select 1 from public.profiles where id = auth.uid() and role = 'admin');
+$$;
 
 -- Administrators can read learning records for aggregate learner reporting.
 -- Learners retain their existing own-record policies.
@@ -45,12 +61,18 @@ create policy "Admins can view all quiz attempts" on public.quiz_attempts
   for select using (public.is_admin());
 
 
+drop policy if exists "Users can view own profile" on public.profiles;
 create policy "Users can view own profile" on public.profiles for select using (auth.uid() = id);
 -- Profile role and membership fields are changed only by trusted server/admin workflows.
+drop policy if exists "Users can view own lesson progress" on public.lesson_progress;
 create policy "Users can view own lesson progress" on public.lesson_progress for select using (auth.uid() = user_id);
+drop policy if exists "Users can insert own lesson progress" on public.lesson_progress;
 create policy "Users can insert own lesson progress" on public.lesson_progress for insert with check (auth.uid() = user_id);
+drop policy if exists "Users can update own lesson progress" on public.lesson_progress;
 create policy "Users can update own lesson progress" on public.lesson_progress for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+drop policy if exists "Users can view own quiz attempts" on public.quiz_attempts;
 create policy "Users can view own quiz attempts" on public.quiz_attempts for select using (auth.uid() = user_id);
+drop policy if exists "Users can insert own quiz attempts" on public.quiz_attempts;
 create policy "Users can insert own quiz attempts" on public.quiz_attempts for insert with check (auth.uid() = user_id);
 
 create or replace function public.handle_new_user()
@@ -87,16 +109,6 @@ create policy "Published courses are viewable by everyone" on public.courses
 drop policy if exists "Admins can manage courses" on public.courses;
 create policy "Admins can manage courses" on public.courses
   for all using (public.is_admin()) with check (public.is_admin());
-
-create or replace function public.is_admin()
-returns boolean
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select exists (select 1 from public.profiles where id = auth.uid() and role = 'admin');
-$$;
 
 drop policy if exists "Admins can view all profiles" on public.profiles;
 create policy "Admins can view all profiles" on public.profiles
