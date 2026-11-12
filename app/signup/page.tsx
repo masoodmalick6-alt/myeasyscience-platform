@@ -1,0 +1,5 @@
+import { AuthForm } from "@/components/auth-form";
+export default async function Signup({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+  const params = await searchParams;
+  return <AuthForm mode="signup" error={params.error}/>;
+}
