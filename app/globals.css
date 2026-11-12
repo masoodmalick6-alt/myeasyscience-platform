@@ -16,3 +16,54 @@ button, input { font: inherit; }
 .field { width: 100%; border: 1px solid #dce4ee; background: white; padding: 12px 14px; border-radius: 11px; outline: none; }
 .field:focus { border-color: #246bce; box-shadow: 0 0 0 3px #246bce20; }
 .muted { color: #64748b; }
+
+
+@media print {
+  body { background: white !important; }
+  body * { visibility: hidden !important; }
+  .certificate-print, .certificate-print * { visibility: visible !important; }
+  .certificate-print { display: block !important; position: relative; break-inside: avoid; margin: 12mm auto !important; }
+  main { width: 100% !important; max-width: none !important; padding: 0 !important; }
+}
+
+
+/* MyEasyScience theme support */
+:root { color-scheme: light; }
+html.dark { color-scheme: dark; }
+html { transition: background-color .2s ease, color .2s ease; }
+body { transition: background-color .2s ease, color .2s ease; }
+.theme-toggle { background: #fff; color: #24324a; border-color: #dce4ee; white-space: nowrap; }
+.theme-toggle:hover { background: #edf4ff; border-color: #9bbce8; }
+
+html.dark body { background: #0b1220; color: #e5edf8; }
+html.dark header { background: #111c2e; border-color: #26364c; }
+html.dark .card { background: #142137; border-color: #2a3b54; box-shadow: 0 12px 36px rgba(0,0,0,.18); }
+html.dark .theme-toggle { background: #1b2a40; color: #e5edf8; border-color: #40536e; }
+html.dark .theme-toggle:hover { background: #263a55; }
+
+/* Common Tailwind utility surfaces used throughout the learning platform. */
+html.dark .bg-white { background-color: #142137 !important; }
+html.dark .bg-slate-50 { background-color: #18263b !important; }
+html.dark .bg-slate-100 { background-color: #22334b !important; }
+html.dark .bg-slate-200 { background-color: #30435d !important; }
+html.dark .bg-gray-50, html.dark .bg-gray-100 { background-color: #18263b !important; }
+html.dark .text-slate-900, html.dark .text-gray-900 { color: #f1f5f9 !important; }
+html.dark .text-slate-800, html.dark .text-gray-800 { color: #e2e8f0 !important; }
+html.dark .text-slate-700, html.dark .text-gray-700 { color: #d5dfed !important; }
+html.dark .text-slate-600, html.dark .text-gray-600 { color: #bdcadd !important; }
+html.dark .text-slate-500, html.dark .text-gray-500 { color: #9eafc5 !important; }
+html.dark .border-slate-100, html.dark .border-slate-200, html.dark .border-slate-300,
+html.dark .border-gray-100, html.dark .border-gray-200, html.dark .border-gray-300 { border-color: #344760 !important; }
+html.dark input:not([type="range"]), html.dark textarea, html.dark select {
+  background-color: #17263b;
+  color: #edf4ff;
+  border-color: #40536e;
+}
+html.dark input::placeholder, html.dark textarea::placeholder { color: #91a3bb; }
+html.dark .field { background: #17263b; color: #edf4ff; border-color: #40536e; }
+html.dark .btn-secondary { background: #233b5b; color: #cfe2ff; }
+html.dark .bg-gradient-to-br { background-color: #142137; }
+html.dark .shadow, html.dark .shadow-sm, html.dark .shadow-md { --tw-shadow-color: rgba(0,0,0,.25); }
+html.dark .prose { color: #d5dfed; }
+html.dark .divide-slate-100 > :not([hidden]) ~ :not([hidden]),
+html.dark .divide-slate-200 > :not([hidden]) ~ :not([hidden]) { border-color: #344760; }

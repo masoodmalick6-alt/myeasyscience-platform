@@ -4,6 +4,9 @@ create table if not exists public.profiles (
   full_name text,
   membership_tier text not null default 'free' check (membership_tier in ('free','premium')),
   role text not null default 'student' check (role in ('student','admin')),
+  stripe_customer_id text unique,
+  stripe_subscription_id text unique,
+  subscription_status text,
   created_at timestamptz not null default now()
 );
 
@@ -25,9 +28,22 @@ create table if not exists public.quiz_attempts (
   created_at timestamptz not null default now()
 );
 
+-- Stores per-question review data for saved practice attempts. Safe to re-run.
+alter table public.quiz_attempts add column if not exists answer_details jsonb;
+
 alter table public.profiles enable row level security;
 alter table public.lesson_progress enable row level security;
 alter table public.quiz_attempts enable row level security;
+
+-- Administrators can read learning records for aggregate learner reporting.
+-- Learners retain their existing own-record policies.
+drop policy if exists "Admins can view all lesson progress" on public.lesson_progress;
+create policy "Admins can view all lesson progress" on public.lesson_progress
+  for select using (public.is_admin());
+drop policy if exists "Admins can view all quiz attempts" on public.quiz_attempts;
+create policy "Admins can view all quiz attempts" on public.quiz_attempts
+  for select using (public.is_admin());
+
 
 create policy "Users can view own profile" on public.profiles for select using (auth.uid() = id);
 -- Profile role and membership fields are changed only by trusted server/admin workflows.
@@ -50,3 +66,198 @@ $$;
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created after insert on auth.users
 for each row execute procedure public.handle_new_user();
+
+
+-- Admin-managed course content. Existing starter courses remain in the app's
+-- local course-data file; courses created here are loaded from this table.
+create table if not exists public.courses (
+  id text primary key check (id ~ '^[a-z0-9-]+$'),
+  title text not null,
+  subject text not null,
+  level text not null default 'Beginner',
+  description text not null,
+  lessons jsonb not null default '[]'::jsonb,
+  published boolean not null default true,
+  created_at timestamptz not null default now()
+);
+alter table public.courses enable row level security;
+drop policy if exists "Published courses are viewable by everyone" on public.courses;
+create policy "Published courses are viewable by everyone" on public.courses
+  for select using (published = true or public.is_admin());
+drop policy if exists "Admins can manage courses" on public.courses;
+create policy "Admins can manage courses" on public.courses
+  for all using (public.is_admin()) with check (public.is_admin());
+
+create or replace function public.is_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (select 1 from public.profiles where id = auth.uid() and role = 'admin');
+$$;
+
+drop policy if exists "Admins can view all profiles" on public.profiles;
+create policy "Admins can view all profiles" on public.profiles
+  for select using (public.is_admin());
+
+-- After creating your account, promote the intended administrator with:
+-- update public.profiles set role = 'admin' where id = (select id from auth.users where email = 'YOUR_ADMIN_EMAIL');
+
+
+-- V11: teacher classrooms, invite codes, assignments and student completion.
+-- Migration-safe: adds teacher as an allowed profile role.
+alter table public.profiles drop constraint if exists profiles_role_check;
+alter table public.profiles add constraint profiles_role_check
+  check (role in ('student','teacher','admin'));
+
+create table if not exists public.classes (
+  id uuid primary key default gen_random_uuid(),
+  teacher_id uuid not null references public.profiles(id) on delete cascade,
+  name text not null check (char_length(name) between 1 and 90),
+  subject text not null default 'General Science',
+  grade_level text,
+  invite_code text not null unique check (invite_code ~ '^[A-F0-9]{8}$'),
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.class_members (
+  id uuid primary key default gen_random_uuid(),
+  class_id uuid not null references public.classes(id) on delete cascade,
+  student_id uuid not null references public.profiles(id) on delete cascade,
+  joined_at timestamptz not null default now(),
+  unique (class_id, student_id)
+);
+
+create table if not exists public.assignments (
+  id uuid primary key default gen_random_uuid(),
+  class_id uuid not null references public.classes(id) on delete cascade,
+  title text not null check (char_length(title) between 1 and 120),
+  description text not null default '',
+  due_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.assignment_submissions (
+  id uuid primary key default gen_random_uuid(),
+  assignment_id uuid not null references public.assignments(id) on delete cascade,
+  student_id uuid not null references public.profiles(id) on delete cascade,
+  status text not null default 'completed' check (status in ('completed')),
+  submitted_at timestamptz not null default now(),
+  unique (assignment_id, student_id)
+);
+
+create index if not exists classes_teacher_id_idx on public.classes(teacher_id);
+create index if not exists class_members_student_id_idx on public.class_members(student_id);
+create index if not exists assignments_class_id_idx on public.assignments(class_id);
+create index if not exists assignment_submissions_student_id_idx on public.assignment_submissions(student_id);
+
+alter table public.classes enable row level security;
+alter table public.class_members enable row level security;
+alter table public.assignments enable row level security;
+alter table public.assignment_submissions enable row level security;
+
+create or replace function public.is_teacher()
+returns boolean language sql stable security definer set search_path = public
+as $$
+  select exists (select 1 from public.profiles where id = auth.uid() and role in ('teacher','admin'));
+$$;
+
+create or replace function public.owns_class(p_class_id uuid)
+returns boolean language sql stable security definer set search_path = public
+as $$
+  select exists (select 1 from public.classes where id = p_class_id and teacher_id = auth.uid());
+$$;
+
+create or replace function public.is_class_member(p_class_id uuid)
+returns boolean language sql stable security definer set search_path = public
+as $$
+  select exists (select 1 from public.class_members where class_id = p_class_id and student_id = auth.uid());
+$$;
+
+drop policy if exists "Class members and teachers can view classes" on public.classes;
+create policy "Class members and teachers can view classes" on public.classes
+  for select using (teacher_id = auth.uid() or public.is_class_member(id) or public.is_admin());
+drop policy if exists "Teachers can create their own classes" on public.classes;
+create policy "Teachers can create their own classes" on public.classes
+  for insert with check (teacher_id = auth.uid() and public.is_teacher());
+drop policy if exists "Teachers can update their own classes" on public.classes;
+create policy "Teachers can update their own classes" on public.classes
+  for update using (teacher_id = auth.uid() or public.is_admin())
+  with check (teacher_id = auth.uid() or public.is_admin());
+drop policy if exists "Teachers can delete their own classes" on public.classes;
+create policy "Teachers can delete their own classes" on public.classes
+  for delete using (teacher_id = auth.uid() or public.is_admin());
+
+drop policy if exists "Students and class teachers can view memberships" on public.class_members;
+create policy "Students and class teachers can view memberships" on public.class_members
+  for select using (student_id = auth.uid() or public.owns_class(class_id) or public.is_admin());
+
+drop policy if exists "Class members and teachers can view assignments" on public.assignments;
+create policy "Class members and teachers can view assignments" on public.assignments
+  for select using (public.owns_class(class_id) or public.is_class_member(class_id) or public.is_admin());
+drop policy if exists "Teachers can create assignments" on public.assignments;
+create policy "Teachers can create assignments" on public.assignments
+  for insert with check (public.owns_class(class_id) or public.is_admin());
+drop policy if exists "Teachers can update assignments" on public.assignments;
+create policy "Teachers can update assignments" on public.assignments
+  for update using (public.owns_class(class_id) or public.is_admin())
+  with check (public.owns_class(class_id) or public.is_admin());
+drop policy if exists "Teachers can delete assignments" on public.assignments;
+create policy "Teachers can delete assignments" on public.assignments
+  for delete using (public.owns_class(class_id) or public.is_admin());
+
+drop policy if exists "Students and class teachers can view submissions" on public.assignment_submissions;
+create policy "Students and class teachers can view submissions" on public.assignment_submissions
+  for select using (
+    student_id = auth.uid()
+    or exists (select 1 from public.assignments a where a.id = assignment_id and public.owns_class(a.class_id))
+    or public.is_admin()
+  );
+drop policy if exists "Students can complete their own assignments" on public.assignment_submissions;
+create policy "Students can complete their own assignments" on public.assignment_submissions
+  for insert with check (
+    student_id = auth.uid()
+    and exists (select 1 from public.assignments a where a.id = assignment_id and public.is_class_member(a.class_id))
+  );
+drop policy if exists "Students can update their own assignment completion" on public.assignment_submissions;
+create policy "Students can update their own assignment completion" on public.assignment_submissions
+  for update using (student_id = auth.uid())
+  with check (student_id = auth.uid());
+
+-- Students join by code without exposing a public class-code lookup endpoint.
+create or replace function public.join_class_by_code(p_invite_code text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_class public.classes%rowtype;
+  v_role text;
+begin
+  if auth.uid() is null then
+    raise exception 'Authentication required';
+  end if;
+  select role into v_role from public.profiles where id = auth.uid();
+  if v_role is distinct from 'student' then
+    raise exception 'Only student accounts can join classes';
+  end if;
+  select * into v_class from public.classes
+    where invite_code = upper(trim(p_invite_code)) limit 1;
+  if not found then
+    raise exception 'Class code not found';
+  end if;
+  insert into public.class_members(class_id, student_id)
+    values (v_class.id, auth.uid())
+    on conflict (class_id, student_id) do nothing;
+  return jsonb_build_object('class_id', v_class.id, 'class_name', v_class.name);
+end;
+$$;
+revoke all on function public.join_class_by_code(text) from public;
+grant execute on function public.join_class_by_code(text) to authenticated;
+
+-- Promote a registered account to teacher using the Supabase SQL editor:
+-- update public.profiles set role = 'teacher'
+-- where id = (select id from auth.users where email = 'TEACHER_EMAIL');
