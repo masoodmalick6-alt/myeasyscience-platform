@@ -23,7 +23,7 @@ export default async function TeacherPage({ searchParams }: { searchParams: Prom
   return <main className="container py-10 md:py-14">
     <div className="flex flex-wrap justify-between items-end gap-4">
       <div><div className="text-sm font-bold uppercase tracking-wider text-blue-700 flex items-center gap-2"><GraduationCap size={17}/> Teacher workspace</div><h1 className="text-4xl font-black mt-2">Your classrooms</h1><p className="text-slate-600 mt-2">Create classes, invite learners and set learning assignments.</p></div>
-      <Link href="/classroom" className="btn btn-secondary">Student classroom view</Link>
+      <div className="flex flex-wrap gap-2"><Link href="/teacher/certificates" className="btn btn-primary">Issue certificates</Link><Link href="/classroom" className="btn btn-secondary">Student classroom view</Link></div>
     </div>
     {notices.error && <p className="mt-5 rounded-xl bg-red-50 text-red-800 p-4 text-sm">{notices.error}</p>}
     {notices.created && <p className="mt-5 rounded-xl bg-emerald-50 text-emerald-800 p-4 text-sm">Class created. Share its invite code with your students.</p>}

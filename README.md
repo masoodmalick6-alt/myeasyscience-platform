@@ -332,3 +332,45 @@ The site now includes a theme toggle in the header:
 - Theme preference is saved in browser local storage and restored on later visits.
 - Applies globally to the main site shell and common learning-platform surfaces, text, borders and form controls.
 - No account setting or database migration is required; the preference is stored locally in the current browser.
+
+### V24 – Physics Challenge Centre
+- Added a dedicated interactive Physics Challenge Centre to `/physics-lab`.
+- Topic and difficulty filters, eight calculation questions, instant marking, explanations, progress and end-of-round scoring.
+- Browser-only practice; no database migration or external credentials required.
+
+### V25 – Astronomy & Space Exploration Centre
+- Added `/space-exploration` with an eight-planet explorer, gravity/weight calculator, simplified Earth-orbit model, Moon-phase explorer and space-mission learning cards.
+- Added navigation and homepage links. Browser-only interactions; no database migration or external credentials required.
+
+### V26 – Earth & Climate Science Centre
+- Added `/earth-climate` with atmosphere layers, an illustrative climate-variable slider, water-cycle explorer, rock-cycle/geology explainer and interactive weather quiz.
+- Added homepage and navigation links. Browser-only interactions; no database migration or external credentials required.
+
+### V27 – Mathematics Discovery Centre
+- Added `/mathematics-discovery` with a linear-equation solver, fraction calculator, area calculator for rectangles/triangles/circles, adjustable straight-line graph and interactive quiz.
+- Added homepage and navigation links. Browser-only interactions; no database migration or external credentials required.
+
+### V28 – Computer Science & Coding Centre
+- Added `/coding-discovery` with guided Python fundamentals, a restricted educational mini runner, algorithm design, binary number conversion and interactive logic/coding challenges.
+- Added homepage and navigation links. Browser-only interactions; no database migration or external credentials required.
+
+### V29 – Interactive Science Assessment Centre
+- Added `/science-assessment` with mixed or focused practice across Biology, Chemistry, Physics, Mathematics, Computer Science, Earth Science and Astronomy.
+- Includes difficulty filters, configurable question count, optional timed mode, instant feedback, subject breakdown and answer explanations. Session-only results; no database migration or external credentials required.
+
+### V30 – Student Certificate & Achievement Centre
+- Added `/certificates` with personalised, printable milestone certificates and an achievement shelf.
+- Certificates can be printed or saved as PDF using the browser print dialog.
+- Records are stored in browser localStorage only. Awards are self-reported acknowledgements, not accredited qualifications or independently verified credentials. No database migration required.
+
+### V31 – Teacher-Verified Certificates
+- Teachers/admins can issue certificates to enrolled members of their own classrooms at `/teacher/certificates`.
+- Students can view teacher-issued awards at `/verified-certificates`.
+- Adds `verified_certificates` with row-level security and the migration `supabase/migrations/20261112_v31_verified_certificates.sql`.
+- Apply the SQL migration in Supabase before using this feature. Existing self-reported printable certificates remain separate. Teacher-issued records are not accredited external qualifications.
+
+### V32 – Certificate Verification Portal
+- Added public `/verify-certificate` reference lookup backed by a restricted Supabase RPC.
+- Teacher-issued certificates receive unique `MESV-` references; teachers/admins can revoke records they are authorised to manage.
+- Student verified certificate list displays references and links to public verification.
+- Apply `supabase/migrations/20261113_v32_certificate_verification.sql` after V31. Public lookup exposes certificate metadata and issuer, not student identity. Verification does not establish external accreditation.

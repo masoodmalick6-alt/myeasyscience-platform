@@ -1,6 +1,7 @@
 import { PhysicsDiscoveryLab } from "@/components/physics-discovery-lab";
 import { PhysicsFrontiersLab } from "@/components/physics-frontiers-lab";
 import { Orbit } from "lucide-react";
+import PhysicsChallengeCentre from "@/components/physics-challenge-centre";
 
 export default function PhysicsLabPage() {
   return <main className="container py-10 md:py-14">
@@ -11,6 +12,7 @@ export default function PhysicsLabPage() {
     </div>
     <PhysicsDiscoveryLab />
     <PhysicsFrontiersLab />
+    <div className="mt-12"><PhysicsChallengeCentre /></div>
     <div className="mt-8 rounded-2xl bg-slate-50 border border-slate-200 p-5 text-sm text-slate-600"><strong className="text-slate-800">Learning note:</strong> These are simplified teaching models. Real-world systems may include friction, measurement uncertainty, energy losses and more complex behaviour.</div>
   </main>;
 }

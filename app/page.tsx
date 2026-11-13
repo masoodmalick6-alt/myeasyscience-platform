@@ -37,6 +37,36 @@ export default function Home() {
     </section>
     <section className="container py-8">
       <div className="card p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
+        <div><p className="text-indigo-700 font-bold text-sm uppercase tracking-wider">New · Astronomy discovery</p><h2 className="text-2xl md:text-3xl font-black mt-2">Explore the Solar System and beyond</h2><p className="text-slate-600 mt-2 max-w-2xl">Meet the planets, compare gravity, explore Moon phases and discover the science behind space missions.</p></div>
+        <Link href="/space-exploration" className="btn btn-primary shrink-0">Explore space →</Link>
+      </div>
+    </section>
+    <section className="container py-8">
+      <div className="card p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
+        <div><p className="text-emerald-700 font-bold text-sm uppercase tracking-wider">New · Earth & climate science</p><h2 className="text-2xl md:text-3xl font-black mt-2">Discover the systems that shape our planet</h2><p className="text-slate-600 mt-2 max-w-2xl">Explore the atmosphere, weather, climate factors, the water cycle and Earth's rocks through interactive activities.</p></div>
+        <Link href="/earth-climate" className="btn btn-primary shrink-0">Explore Earth science →</Link>
+      </div>
+    </section>
+    <section className="container py-8">
+      <div className="card p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
+        <div><p className="text-amber-700 font-bold text-sm uppercase tracking-wider">New · Mathematics discovery</p><h2 className="text-2xl md:text-3xl font-black mt-2">Build confidence with numbers and problem-solving</h2><p className="text-slate-600 mt-2 max-w-2xl">Solve equations, calculate fractions and shapes, explore graphs and test your maths skills.</p></div>
+        <Link href="/mathematics-discovery" className="btn btn-primary shrink-0">Explore maths →</Link>
+      </div>
+    </section>
+    <section className="container py-8">
+      <div className="card p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
+        <div><p className="text-cyan-700 font-bold text-sm uppercase tracking-wider">New · Computer science & coding</p><h2 className="text-2xl md:text-3xl font-black mt-2">Learn to think like a programmer</h2><p className="text-slate-600 mt-2 max-w-2xl">Explore Python basics, algorithms, binary numbers, logic and interactive coding challenges.</p></div>
+        <Link href="/coding-discovery" className="btn btn-primary shrink-0">Explore coding →</Link>
+      </div>
+    </section>
+    <section className="container py-8">
+      <div className="card p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
+        <div><p className="text-violet-700 font-bold text-sm uppercase tracking-wider">New · Science assessment centre</p><h2 className="text-2xl md:text-3xl font-black mt-2">Test your knowledge across every subject</h2><p className="text-slate-600 mt-2 max-w-2xl">Build focused or mixed-subject practice papers, choose a difficulty, try timed assessments and review explanations.</p></div>
+        <Link href="/science-assessment" className="btn btn-primary shrink-0">Start an assessment →</Link>
+      </div>
+    </section>
+    <section className="container py-8">
+      <div className="card p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
         <div><p className="text-blue-700 font-bold text-sm uppercase tracking-wider">Physics discovery lab</p><h2 className="text-2xl md:text-3xl font-black mt-2">Experiment with motion, forces, energy and circuits</h2><p className="text-slate-600 mt-2 max-w-2xl">Change variables in interactive physics models and explore how the equations work.</p></div>
         <Link href="/physics-lab" className="btn btn-primary shrink-0">Explore physics lab →</Link>
       </div>
@@ -72,6 +102,18 @@ export default function Home() {
       <div className="card p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-5 border-emerald-200">
         <div><p className="text-emerald-700 font-bold text-sm uppercase tracking-wider">New biology discovery zone</p><h2 className="text-2xl md:text-3xl font-black mt-2">Explore cells, DNA and the human body</h2><p className="text-slate-600 mt-2 max-w-2xl">Try interactive biology activities: inspect a plant cell, pair DNA bases, build a food chain and match organs to body systems.</p></div>
         <Link className="btn btn-primary shrink-0" href="/biology-lab">Open Biology Lab →</Link>
+      </div>
+    </section>
+    <section className="container py-10">
+      <div className="card flex flex-col items-start justify-between gap-5 border-amber-200 p-6 md:flex-row md:items-center md:p-8">
+        <div><p className="text-amber-700 font-bold text-sm uppercase tracking-wider">Student achievements</p><h2 className="mt-2 text-2xl font-black md:text-3xl">Celebrate every learning milestone</h2><p className="mt-2 max-w-2xl text-slate-600">Create personalised certificates for completed learning, build your achievement shelf and print or save your certificates as PDFs.</p></div>
+        <Link href="/certificates" className="btn btn-primary shrink-0">View certificates →</Link>
+      </div>
+    </section>
+    <section className="container py-8">
+      <div className="card flex flex-col items-start justify-between gap-4 border-emerald-200 p-6 md:flex-row md:items-center">
+        <div><p className="text-emerald-700 text-sm font-bold uppercase tracking-wider">Public certificate verification</p><h2 className="mt-2 text-2xl font-black">Check a MyEasyScience certificate</h2><p className="mt-2 max-w-2xl text-slate-600">Verify the current status of a teacher-issued certificate using its unique reference.</p></div>
+        <Link href="/verify-certificate" className="btn btn-primary shrink-0">Verify certificate →</Link>
       </div>
     </section>
 </main>;

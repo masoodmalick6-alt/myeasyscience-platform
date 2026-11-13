@@ -281,3 +281,257 @@ grant execute on function public.join_class_by_code(text) to authenticated;
 -- Promote a registered account to teacher using the Supabase SQL editor:
 -- update public.profiles set role = 'teacher'
 -- where id = (select id from auth.users where email = 'TEACHER_EMAIL');
+
+-- V31: teacher-verified student certificates.
+-- Apply this migration in Supabase SQL Editor before using the teacher issue workflow.
+create table if not exists public.verified_certificates (
+  id uuid primary key default gen_random_uuid(),
+  student_id uuid not null references public.profiles(id) on delete cascade,
+  class_id uuid not null references public.classes(id) on delete cascade,
+  teacher_id uuid not null references public.profiles(id) on delete cascade,
+  title text not null check (char_length(title) between 1 and 120),
+  subject text not null default 'General Science',
+  teacher_note text check (teacher_note is null or char_length(teacher_note) <= 500),
+  awarded_at timestamptz not null default now(),
+  issued_by_name text,
+  issued_at date,
+  created_at timestamptz not null default now()
+);
+
+-- Columns the wallet reads (in the table creation above; kept as alters so
+-- re-running this file also fixes databases created from the earlier V31).
+alter table public.verified_certificates
+  add column if not exists issued_by_name text,
+  add column if not exists issued_at date,
+  add column if not exists created_at timestamptz not null default now();
+
+create index if not exists verified_certificates_student_idx
+  on public.verified_certificates(student_id, awarded_at desc);
+create index if not exists verified_certificates_teacher_idx
+  on public.verified_certificates(teacher_id, awarded_at desc);
+
+alter table public.verified_certificates enable row level security;
+
+drop policy if exists "Students can view their verified certificates" on public.verified_certificates;
+create policy "Students can view their verified certificates"
+  on public.verified_certificates for select
+  using (student_id = auth.uid());
+
+drop policy if exists "Issuing teachers can view certificates they awarded" on public.verified_certificates;
+create policy "Issuing teachers can view certificates they awarded"
+  on public.verified_certificates for select
+  using (teacher_id = auth.uid() or public.is_admin());
+
+drop policy if exists "Teachers can award certificates to their class members" on public.verified_certificates;
+create policy "Teachers can award certificates to their class members"
+  on public.verified_certificates for insert
+  with check (
+    teacher_id = auth.uid()
+    and public.is_teacher()
+    and exists (
+      select 1 from public.classes c
+      join public.class_members m on m.class_id = c.id
+      where c.id = class_id
+        and c.teacher_id = auth.uid()
+        and m.student_id = student_id
+    )
+  );
+
+drop policy if exists "Admins can manage verified certificates" on public.verified_certificates;
+create policy "Admins can manage verified certificates"
+  on public.verified_certificates for all
+  using (public.is_admin())
+  with check (public.is_admin());
+
+-- Normalises a certificate reference for lookup: trims whitespace, uppercases.
+create or replace function public.normalise_certificate_reference(p_reference text)
+returns text
+language sql
+immutable
+set search_path = public
+as $$
+  select upper(trim(p_reference));
+$$;
+
+-- V32: public certificate verification references and revocation support.
+-- Apply after V31. Public users can verify a reference but cannot enumerate records.
+alter table public.verified_certificates
+  add column if not exists certificate_ref text,
+  add column if not exists revoked_at timestamptz,
+  add column if not exists revocation_note text;
+
+update public.verified_certificates
+set certificate_ref = 'MESV-' || upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 12))
+where certificate_ref is null;
+
+create unique index if not exists verified_certificates_certificate_ref_uidx
+  on public.verified_certificates(certificate_ref);
+
+alter table public.verified_certificates
+  alter column certificate_ref set not null;
+
+alter table public.verified_certificates
+  alter column certificate_ref set default 'MESV-' || upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 12));
+
+create or replace function public.assign_certificate_reference()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  if new.certificate_ref is null or new.certificate_ref = '' then
+    new.certificate_ref := 'MESV-' || upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 12));
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists verified_certificate_reference_before_insert on public.verified_certificates;
+create trigger verified_certificate_reference_before_insert
+before insert on public.verified_certificates
+for each row execute procedure public.assign_certificate_reference();
+
+create or replace function public.verify_certificate(p_reference text)
+returns table (
+  is_valid boolean,
+  certificate_ref text,
+  certificate_title text,
+  certificate_subject text,
+  awarded_at timestamptz,
+  issuer_name text,
+  class_name text,
+  revocation_note text
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    (vc.revoked_at is null) as is_valid,
+    vc.certificate_ref,
+    vc.title as certificate_title,
+    vc.subject as certificate_subject,
+    vc.awarded_at,
+    coalesce(issuer.full_name, 'MyEasyScience teacher') as issuer_name,
+    c.name as class_name,
+    case when vc.revoked_at is not null then vc.revocation_note else null end as revocation_note
+  from public.verified_certificates vc
+  left join public.profiles issuer on issuer.id = vc.teacher_id
+  left join public.classes c on c.id = vc.class_id
+  where upper(trim(p_reference)) = upper(vc.certificate_ref)
+  limit 1;
+$$;
+
+revoke all on function public.verify_certificate(text) from public;
+grant execute on function public.verify_certificate(text) to anon, authenticated;
+
+-- V32 (second reference design): the public verification portal in the chat's
+-- V32 line also uses reference_code / revoked / revoked_reason. Keep both
+-- designs so either client can look a certificate up; certificate_ref (with
+-- its assign trigger above) stays the canonical reference.
+create or replace function public.lookup_certificate(p_reference text)
+returns table (
+  title text,
+  subject text,
+  reference_code text,
+  issued_by_name text,
+  issued_at date,
+  revoked boolean,
+  revoked_reason text
+)
+language sql
+security definer
+stable
+set search_path = public
+as $$
+  select
+    title,
+    subject,
+    reference_code,
+    issued_by_name,
+    issued_at,
+    revoked,
+    revoked_reason
+  from public.verified_certificates
+  where reference_code = public.normalise_certificate_reference(p_reference);
+$$;
+
+create or replace function public.verify_certificate_reference(p_reference text)
+returns boolean
+language sql
+security definer
+stable
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.verified_certificates
+    where reference_code = public.normalise_certificate_reference(p_reference)
+  );
+$$;
+
+revoke all on function public.lookup_certificate(text) from public;
+grant execute on function public.lookup_certificate(text) to anon, authenticated;
+
+revoke all on function public.verify_certificate_reference(text) from public;
+grant execute on function public.verify_certificate_reference(text) to anon, authenticated;
+alter table public.verified_certificates
+  add column if not exists reference_code text unique,
+  add column if not exists revoked boolean not null default false,
+  add column if not exists revoked_reason text,
+  add column if not exists created_at timestamptz not null default now();
+
+update public.verified_certificates
+set reference_code = certificate_ref
+where reference_code is null;
+
+alter table public.verified_certificates
+  alter column reference_code set not null;
+
+create index if not exists verified_certificates_reference_code_idx
+  on public.verified_certificates (reference_code);
+create index if not exists verified_certificates_student_id_idx
+  on public.verified_certificates (student_id);
+create index if not exists verified_certificates_created_at_idx
+  on public.verified_certificates (created_at desc);
+
+-- Teachers may revoke certificates they issued; administrators may revoke any.
+drop policy if exists "Teachers can revoke their own issued certificates" on public.verified_certificates;
+create policy "Teachers can revoke their own issued certificates"
+  on public.verified_certificates for update
+  using (teacher_id = auth.uid() or public.is_admin())
+  with check (teacher_id = auth.uid() or public.is_admin());
+
+-- Keep the two certificate designs identical: the wallet reads
+-- reference_code / revoked / revoked_reason, while verification and the
+-- teacher pages use certificate_ref / revoked_at / revocation_note.
+create or replace function public.sync_certificate_fields()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  if new.certificate_ref is not null and (new.reference_code is null or new.reference_code <> new.certificate_ref) then
+    new.reference_code := new.certificate_ref;
+  end if;
+  if new.revoked_at is not null then
+    new.revoked := true;
+    if new.revoked_reason is null then
+      new.revoked_reason := new.revocation_note;
+    end if;
+  end if;
+  if new.revoked is true and new.revoked_at is null then
+    new.revoked_at := now();
+    if new.revocation_note is null then
+      new.revocation_note := new.revoked_reason;
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists verified_certificates_sync_fields on public.verified_certificates;
+create trigger verified_certificates_sync_fields
+before insert or update on public.verified_certificates
+for each row execute procedure public.sync_certificate_fields();
